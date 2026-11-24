@@ -99,7 +99,7 @@ main{max-width:680px;margin:0 auto;padding:18px 16px 60px}
 <script>
 const CFG={titulo:'Ministerio de Alabanza La Vid Verdadera',sub:'Acceso privado del equipo'};
 const USERS={gestion:{p:'director2026',r:'gestion'},equipo:{p:'equipo2026',r:'equipo'}};
-const SB_URL='https://jzenxdbwgbomyllkzqro.supabase.co',SB_KEY='sb_publishable_215GhMGLnkzZIBpCyjf9-w_ERNxJlU4';
+const SB_URL='https://jzenxdbwgbomyllkzqro.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp6ZW54ZGJ3Z2JvbXlsbGtxenJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1NTQyODMsImV4cCI6MjExMTEzMDI4M30.fk7Scm7W0tUpXwRHjlMewleERx7qbkd68Eyj7tDqOgQ';
 let sb=null;try{sb=window.supabase.createClient(SB_URL,SB_KEY)}catch(e){}
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -107,8 +107,8 @@ const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>
 const MEM={};
 const ses=(k,v)=>{try{const s=window.sessionStorage;if(v===undefined)return s.getItem(k);if(v===null)s.removeItem(k);else s.setItem(k,v)}catch(e){if(v===undefined)return MEM[k]??null;if(v===null)delete MEM[k];else MEM[k]=v}};
 let role='equipo';const can=()=>role==='gestion';
-let tt;const toast=m=>{const t=$('#ts');t.textContent=m;t.classList.remove('hide');clearTimeout(tt);tt=setTimeout(()=>t.classList.add('hide'),4500)};
-const errm=e=>'Error: '+(e&&e.message?e.message:e);
+let tt;const toast=m=>{const t=$('#ts');t.textContent=m;t.classList.remove('hide');clearTimeout(tt);tt=setTimeout(()=>t.classList.add('hide'),9000)};
+const errm=e=>{if(!e)return'Error desconocido';let m='Error: '+(e.message||e);if(e.details)m+=' · '+e.details;if(e.hint)m+=' · '+e.hint;if(e.code)m+=' ['+e.code+']';return m};
 
 /* datos */
 const D={miembros:[],canciones:[],planificacion:[],galeria:[],finanzas:[]};
