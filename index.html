@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Ministerio de Alabanza La Vid Verdadera</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script>if(!window.supabase)document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>')</script>
 <style>
 :root{--bg:#0c0c0e;--c:#16161a;--c2:#1e1e24;--b:#2a2a32;--t:#e9e9ee;--m:#85858f;--a:#8b5cf6;--r:#d86a6a}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -100,7 +101,7 @@ main{max-width:680px;margin:0 auto;padding:18px 16px 60px}
 const CFG={titulo:'Ministerio de Alabanza La Vid Verdadera',sub:'Acceso privado del equipo'};
 const USERS={gestion:{p:'director2026',r:'gestion'},equipo:{p:'equipo2026',r:'equipo'}};
 const SB_URL='https://jzenxdbwgbomyllkzqro.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp6ZW54ZGJ3Z2JvbXlsbGtxenJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1NTQyODMsImV4cCI6MjExMTEzMDI4M30.fk7Scm7W0tUpXwRHjlMewleERx7qbkd68Eyj7tDqOgQ';
-let sb=null;try{sb=window.supabase.createClient(SB_URL,SB_KEY)}catch(e){}
+let sb=null;const initSb=()=>{if(!sb)try{sb=window.supabase.createClient(SB_URL,SB_KEY)}catch(e){}return sb};initSb();
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 /* sesión (try/catch por si el visor bloquea el almacenamiento) */
@@ -115,16 +116,16 @@ const D={miembros:[],canciones:[],planificacion:[],galeria:[],finanzas:[]};
 const T={miembros:'miembros',cancionero:'canciones',planificacion:'planificacion',galeria:'galeria',finanzas:'finanzas'};
 const arr=x=>{if(Array.isArray(x))return x;try{return JSON.parse(x)||[]}catch(e){return[]}};
 async function fetchT(t){
- if(!sb)throw new Error('No se pudo cargar Supabase (revisa tu conexión)');
+ if(!initSb())throw new Error('No se pudo cargar Supabase desde unpkg ni jsdelivr (revisa tu conexión)');
  const{data,error}=await sb.from(t).select('*').order('id',{ascending:true});
  if(error)throw error;D[t]=data||[]}
 async function ins(t,row){
- if(!sb)throw new Error('Supabase no disponible');
+ if(!initSb())throw new Error('Supabase no disponible');
  const{data,error}=await sb.from(t).insert(row).select().single();
  if(error)throw error;D[t].push(data);return data}
 async function del(t,id,msg){
  if(!can()||!confirm(msg||'¿Eliminar?'))return;
- try{const{error}=await sb.from(t).delete().eq('id',id);if(error)throw error;D[t]=D[t].filter(x=>x.id!==id);ren()}catch(e){toast(errm(e))}}
+ try{if(!initSb())throw new Error('Supabase no disponible');const{error}=await sb.from(t).delete().eq('id',id);if(error)throw error;D[t]=D[t].filter(x=>x.id!==id);ren()}catch(e){toast(errm(e))}}
 const ini=n=>String(n).trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 const fd=d=>{if(!d)return'';const[y,m,x]=String(d).slice(0,10).split('-');return new Date(y,m-1,x).toLocaleDateString('es',{weekday:'long',day:'numeric',month:'long',year:'numeric'})};
 
