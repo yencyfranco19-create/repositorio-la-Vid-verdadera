@@ -158,7 +158,7 @@ $('#lf').addEventListener('submit',e=>{e.preventDefault();e.stopPropagation();
  }catch(err){$('#le').textContent='Error al ingresar: '+err.message}});
 async function start(){
  const n=ses('al_ses');role=(USERS[n]||{}).r||'equipo';
- $('#login').classList.add('hide');$('#app').classList.remove('hide');$('#su').textContent=n+' · '+role;
+ $('#login').classList.add('hide');$('#app').classList.remove('hide');$('#su').textContent=role==='gestion'?'Gestión':'Equipo';
  $('#mn').innerHTML='<div class="empty">Cargando…</div>';
  try{await Promise.all(Object.keys(D).map(fetchT))}catch(e){toast(errm(e))}
  go('miembros',1)}
