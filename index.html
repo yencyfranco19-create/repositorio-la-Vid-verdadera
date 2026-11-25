@@ -44,6 +44,8 @@ main{max-width:680px;margin:0 auto;padding:18px 16px 60px}
 .tag{font-size:10px;letter-spacing:1.5px;border:1px solid var(--a);color:var(--a);padding:3px 8px;border-radius:20px;text-transform:uppercase;white-space:nowrap}
 .x{background:none;border:0;color:var(--m);font-size:18px;cursor:pointer;padding:4px}
 .x:hover{color:var(--r)}
+.x.e:hover{color:var(--a)}
+.acts{display:flex;align-items:center}
 .empty{color:var(--m);text-align:center;padding:30px 0;font-size:13px}
 .chips span{display:inline-block;background:var(--c2);border-radius:20px;padding:3px 10px;margin:3px 4px 0 0;font-size:12px}
 .chips span.m{color:var(--a)}
@@ -70,9 +72,9 @@ main{max-width:680px;margin:0 auto;padding:18px 16px 60px}
 #ts{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--c2);border:1px solid var(--r);color:var(--t);padding:10px 16px;border-radius:10px;font-size:13px;z-index:30;max-width:90%}
 </style></head><body>
 
-<!-- Tablas Supabase (columna id autogenerada en todas):
- miembros(nombre,rol,dato,foto_url) · canciones(titulo,tonalidad,estilo) · planificacion(fecha date,nombre,canciones jsonb,miembros jsonb)
- galeria(imagen_url) · finanzas(tipo,concepto,monto numeric,fecha date) -->
+<!-- Colecciones Cloud Firestore (id automático):
+ miembros(nombre,rol,dato,foto_url) · canciones(titulo,tonalidad,estilo) · planificacion(fecha,nombre,canciones[],miembros[])
+ galeria(imagen_url) · finanzas(tipo,concepto,monto,fecha) · todas con creado(número) -->
 
 <section id="login">
  <form class="card" id="lf">
@@ -98,15 +100,7 @@ main{max-width:680px;margin:0 auto;padding:18px 16px 60px}
 <script>
 const CFG={titulo:'Ministerio de Alabanza La Vid Verdadera',sub:'Acceso privado del equipo'};
 const USERS={gestion:{p:'director2026',r:'gestion'},equipo:{p:'equipo2026',r:'equipo'}};
-const SB_URL='https://jzenxdbwgbomyllkzqro.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp6ZW54ZGJ3Z2JvbXlsbGtxenJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1NTQyODMsImV4cCI6MjExMTEzMDI4M30.fk7Scm7W0tUpXwRHjlMewleERx7qbkd68Eyj7tDqOgQ';
-/* Cliente mínimo contra la API REST de Supabase (sin librerías ni CDN) */
-async function api(path,opt={}){
- let r;
- try{r=await fetch(SB_URL+'/rest/v1/'+path,{...opt,headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',...(opt.headers||{})}})}
- catch(e){throw {message:'No se pudo conectar con Supabase ('+e.message+'). Revisa tu conexión o si la red bloquea supabase.co'}}
- const txt=await r.text();let j=null;try{j=txt?JSON.parse(txt):null}catch(e){}
- if(!r.ok)throw (j&&typeof j==='object'?j:{message:'HTTP '+r.status+' '+txt});
- return j}
+const firebaseConfig={apiKey:"AIzaSyDkU4992jpfYu09yTCCVhACtH6S1igxyc8",authDomain:"la-vid-verdadera-b49e5.firebaseapp.com",projectId:"la-vid-verdadera-b49e5",storageBucket:"la-vid-verdadera-b49e5.firebasestorage.app",messagingSenderId:"37016397273",appId:"1:37016397273:web:b94b23329b7b57957da5c8"};
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 /* sesión (try/catch por si el visor bloquea el almacenamiento) */
@@ -114,21 +108,44 @@ const MEM={};
 const ses=(k,v)=>{try{const s=window.sessionStorage;if(v===undefined)return s.getItem(k);if(v===null)s.removeItem(k);else s.setItem(k,v)}catch(e){if(v===undefined)return MEM[k]??null;if(v===null)delete MEM[k];else MEM[k]=v}};
 let role='equipo';const can=()=>role==='gestion';
 let tt;const toast=m=>{const t=$('#ts');t.textContent=m;t.classList.remove('hide');clearTimeout(tt);tt=setTimeout(()=>t.classList.add('hide'),9000)};
-const errm=e=>{if(!e)return'Error desconocido';let m='Error: '+(e.message||e);if(e.details)m+=' · '+e.details;if(e.hint)m+=' · '+e.hint;if(e.code)m+=' ['+e.code+']';return m};
+const errm=e=>'Error: '+((e&&e.message)||e||'desconocido');
+
+/* Cloud Firestore vía API REST (sin librerías ni CDN) */
+const FS='https://firestore.googleapis.com/v1/projects/'+firebaseConfig.projectId+'/databases/(default)/documents',KEY='key='+firebaseConfig.apiKey;
+const enc=v=>v==null?{nullValue:null}:Array.isArray(v)?{arrayValue:{values:v.map(enc)}}:typeof v==='number'?(Number.isInteger(v)?{integerValue:String(v)}:{doubleValue:v}):typeof v==='boolean'?{booleanValue:v}:{stringValue:String(v)};
+const dec=f=>'stringValue'in f?f.stringValue:'integerValue'in f?Number(f.integerValue):'doubleValue'in f?f.doubleValue:'booleanValue'in f?f.booleanValue:'arrayValue'in f?(f.arrayValue.values||[]).map(dec):'mapValue'in f?Object.fromEntries(Object.entries(f.mapValue.fields||{}).map(([k,x])=>[k,dec(x)])):null;
+const fields=o=>({fields:Object.fromEntries(Object.entries(o).map(([k,v])=>[k,enc(v)]))});
+const fromDoc=d=>({id:d.name.split('/').pop(),...Object.fromEntries(Object.entries(d.fields||{}).map(([k,v])=>[k,dec(v)]))});
+async function fs(path,opt={}){
+ let r;
+ try{r=await fetch(FS+path,{...opt,headers:{'Content-Type':'application/json'}})}
+ catch(e){throw {message:'Error de red: no se pudo conectar con Firestore ('+e.message+'). Revisa tu conexión o si la red bloquea googleapis.com'}}
+ const txt=await r.text();let j=null;try{j=txt?JSON.parse(txt):null}catch(e){}
+ if(!r.ok){const er=(j&&j.error)||{};let m=(er.message||txt||'HTTP '+r.status)+' ['+(er.status||r.status)+']';
+  if(er.status==='PERMISSION_DENIED')m='Permisos insuficientes: revisa las reglas de Firestore. '+m;
+  throw {message:m}}
+ return j}
 
 /* datos */
 const D={miembros:[],canciones:[],planificacion:[],galeria:[],finanzas:[]};
 const T={miembros:'miembros',cancionero:'canciones',planificacion:'planificacion',galeria:'galeria',finanzas:'finanzas'};
-const arr=x=>{if(Array.isArray(x))return x;try{return JSON.parse(x)||[]}catch(e){return[]}};
+const arr=x=>Array.isArray(x)?x:[];
 async function fetchT(t){
- D[t]=await api(t+'?select=*&order=id.asc')||[]}
+ let out=[],tok='';
+ do{const j=await fs('/'+t+'?pageSize=300&'+KEY+(tok?'&pageToken='+encodeURIComponent(tok):''));
+  out.push(...(j.documents||[]).map(fromDoc));tok=j.nextPageToken||''}while(tok);
+ D[t]=out.sort((a,b)=>(a.creado||0)-(b.creado||0))}
 async function ins(t,row){
- const r=await api(t,{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(row)});
- const data=Array.isArray(r)?r[0]:r;D[t].push(data);return data}
+ const d=fromDoc(await fs('/'+t+'?'+KEY,{method:'POST',body:JSON.stringify(fields({...row,creado:Date.now()}))}));
+ D[t].push(d);return d}
+async function upd(t,id,row){
+ const q=Object.keys(row).map(k=>'updateMask.fieldPaths='+encodeURIComponent(k)).join('&');
+ const d=fromDoc(await fs('/'+t+'/'+encodeURIComponent(id)+'?'+q+'&'+KEY,{method:'PATCH',body:JSON.stringify(fields(row))}));
+ D[t]=D[t].map(x=>x.id===id?d:x);return d}
 async function del(t,id,msg){
  if(!can()||!confirm(msg||'¿Eliminar?'))return;
- try{await api(t+'?id=eq.'+encodeURIComponent(id),{method:'DELETE'});D[t]=D[t].filter(x=>x.id!==id);ren()}catch(e){toast(errm(e))}}
-const ini=n=>String(n).trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+ try{await fs('/'+t+'/'+encodeURIComponent(id)+'?'+KEY,{method:'DELETE'});D[t]=D[t].filter(x=>x.id!==id);ren()}catch(e){toast(errm(e))}}
+const ini=n=>String(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 const fd=d=>{if(!d)return'';const[y,m,x]=String(d).slice(0,10).split('-');return new Date(y,m-1,x).toLocaleDateString('es',{weekday:'long',day:'numeric',month:'long',year:'numeric'})};
 
 /* login */
@@ -150,17 +167,20 @@ function menu(o){$('#nv').classList.toggle('o',!!o);$('#ov').classList.toggle('h
 document.querySelectorAll('nav a[data-v]').forEach(a=>a.onclick=()=>go(a.dataset.v));
 
 /* modal */
-function modal(title,fields,cb){
- $('#mf').innerHTML=`<h3>${title}</h3>`+fields.map(f=>{
+function modal(title,flds,cb,init={}){
+ $('#mf').innerHTML=`<h3>${title}</h3>`+flds.map(f=>{
   let i;
   if(f.t==='select')i=`<select id="f_${f.id}">${f.o.map(o=>`<option>${esc(o)}</option>`).join('')}</select>`;
   else if(f.t==='multi')i=`<div class="ck">${f.o.map(o=>`<label><input type="checkbox" name="${f.id}" value="${esc(o)}">${esc(o)}</label>`).join('')||'<small style="color:var(--m)">Sin opciones</small>'}</div>`;
-  else i=`<input id="f_${f.id}" type="${f.t||'text'}" ${f.t==='file'?'accept="image/*"':''} placeholder="${esc(f.p||'')}" ${f.req?'required':''}>`;
+  else i=`<input id="f_${f.id}" type="${f.t||'text'}" ${f.t==='file'?'accept="image/*"':''} ${f.t==='number'?'step="any"':''} placeholder="${esc(f.p||'')}" ${f.req?'required':''}>`;
   return`<label>${f.l}</label>`+i}).join('')+`<div class="bt"><button type="button" class="btn g sm" onclick="closeM()">CANCELAR</button><button class="btn sm" id="sv" style="flex:1">GUARDAR</button></div>`;
+ flds.forEach(f=>{const v=init[f.id];if(v==null||f.t==='file')return;
+  if(f.t==='multi')document.querySelectorAll(`[name=${f.id}]`).forEach(x=>x.checked=v.includes(x.value));
+  else $('#f_'+f.id).value=v});
  $('#md').classList.remove('hide');
  $('#mf').onsubmit=async e=>{e.preventDefault();const b=$('#sv');b.disabled=true;
   try{const v={};
-   for(const f of fields){
+   for(const f of flds){
     if(f.t==='multi')v[f.id]=[...document.querySelectorAll(`[name=${f.id}]:checked`)].map(x=>x.value);
     else if(f.t==='file'){const fl=$('#f_'+f.id).files[0];v[f.id]=fl?await img(fl):''}
     else v[f.id]=$('#f_'+f.id).value.trim()}
@@ -176,7 +196,7 @@ function img(file,max=600){return new Promise((ok,no)=>{const fr=new FileReader(
 /* vistas */
 let cur='miembros',q='';
 const btn=(txt,fn)=>can()?`<button class="btn sm" onclick="${fn}()">${txt}</button>`:'';
-const xb=(t,id)=>can()?`<button class="x" onclick="del('${t}',${id})">✕</button>`:'';
+const xb=(t,id,ed=1)=>can()?`<span class="acts">${ed?`<button class="x e" title="Editar" onclick="E.${t}('${id}')">✎</button>`:''}<button class="x" title="Eliminar" onclick="del('${t}','${id}')">✕</button></span>`:'';
 const V={
  miembros(){
   const h=D.miembros.map(m=>`<div class="item">${m.foto_url?`<img class="av" src="${m.foto_url}">`:`<div class="av">${esc(ini(m.nombre))}</div>`}
@@ -194,7 +214,7 @@ const V={
    <div class="chips">${arr(p.miembros).map(c=>`<span class="m">${esc(c)}</span>`).join('')}</div></div>`).join('')||'<div class="empty">No hay servicios planificados</div>')},
  galeria(){
   return`<div class="top"><div style="flex:1"></div><button class="btn sm" onclick="addG()">+ SUBIR FOTO</button></div>`+
-  (D.galeria.length?`<div class="grid">${D.galeria.map(g=>`<div><img src="${g.imagen_url}">${xb('galeria',g.id)}</div>`).join('')}</div>`:'<div class="empty">La galería está vacía</div>')},
+  (D.galeria.length?`<div class="grid">${D.galeria.map(g=>`<div><img src="${g.imagen_url}">${xb('galeria',g.id,0)}</div>`).join('')}</div>`:'<div class="empty">La galería está vacía</div>')},
  finanzas(){
   const tot=t=>D.finanzas.filter(x=>x.tipo===t).reduce((s,x)=>s+Number(x.monto||0),0),i=tot('Ingreso'),e=tot('Egreso'),f=n=>'$'+n.toLocaleString('es',{minimumFractionDigits:2,maximumFractionDigits:2});
   return`<div class="sum"><div><small>INGRESOS</small><b class="pos">${f(i)}</b></div><div><small>EGRESOS</small><b class="neg">${f(e)}</b></div><div><small>BALANCE</small><b>${f(i-e)}</b></div></div>
@@ -206,17 +226,26 @@ async function go(v,skip){cur=v;q='';menu(0);$('#vt').textContent=v.toUpperCase(
  if(!skip){$('#mn').innerHTML='<div class="empty">Cargando…</div>';try{await fetchT(T[v])}catch(e){toast(errm(e))}}
  if(cur===v)ren()}
 
-/* formularios */
+/* formularios: crear y editar */
 const hoy=()=>new Date().toISOString().slice(0,10);
-function addM(){modal('Añadir miembro',[{id:'n',l:'Nombre',req:1},{id:'r',l:'Rol',t:'select',o:['Cantante','Músico','Sonidista','Proyeccion','Director','Otro']},{id:'d',l:'Dato secundario',p:'Fecha, nota…'},{id:'f',l:'Foto (opcional)',t:'file'}],
- v=>ins('miembros',{nombre:v.n,rol:v.r,dato:v.d,foto_url:v.f||null}))}
-function addC(){modal('Nueva canción',[{id:'t',l:'Título',req:1},{id:'k',l:'Tonalidad',p:'Ej. G, Am, F#',req:1},{id:'s',l:'Estilo / nota',p:'Adoración · lenta'}],
- v=>ins('canciones',{titulo:v.t,tonalidad:v.k,estilo:v.s}))}
-function addP(){modal('Nuevo servicio',[{id:'fecha',l:'Fecha',t:'date',req:1},{id:'nombre',l:'Nombre del servicio',p:'Culto dominical'},{id:'canciones',l:'Canciones',t:'multi',o:D.canciones.map(c=>c.titulo)},{id:'miembros',l:'Equipo',t:'multi',o:D.miembros.map(m=>m.nombre)}],
- v=>ins('planificacion',{fecha:v.fecha,nombre:v.nombre,canciones:v.canciones,miembros:v.miembros}));$('#f_fecha').value=hoy()}
+const ROLES=['Cantante','Músico','Sonidista','Proyeccion','Director','Otro'];
+const fM=()=>[{id:'n',l:'Nombre',req:1},{id:'r',l:'Rol',t:'select',o:ROLES},{id:'d',l:'Dato secundario',p:'Fecha, nota…'},{id:'f',l:'Foto (opcional)',t:'file'}];
+const fC=()=>[{id:'t',l:'Título',req:1},{id:'k',l:'Tonalidad',p:'Ej. G, Am, F#',req:1},{id:'s',l:'Estilo / nota',p:'Adoración · lenta'}];
+const fP=(c=[],m=[])=>[{id:'fecha',l:'Fecha',t:'date',req:1},{id:'nombre',l:'Nombre del servicio',p:'Culto dominical'},{id:'canciones',l:'Canciones',t:'multi',o:[...new Set([...D.canciones.map(x=>x.titulo),...c])]},{id:'miembros',l:'Equipo',t:'multi',o:[...new Set([...D.miembros.map(x=>x.nombre),...m])]}];
+const fF=()=>[{id:'tipo',l:'Tipo',t:'select',o:['Ingreso','Egreso']},{id:'c',l:'Concepto',req:1},{id:'m',l:'Monto',t:'number',req:1},{id:'fecha',l:'Fecha',t:'date',req:1}];
+const rM=v=>({nombre:v.n,rol:v.r,dato:v.d}),rC=v=>({titulo:v.t,tonalidad:v.k,estilo:v.s}),rF=v=>({tipo:v.tipo,concepto:v.c,monto:Math.abs(parseFloat(v.m))||0,fecha:v.fecha});
+const find=(t,id)=>D[t].find(x=>x.id===id)||{};
+function addM(){modal('Añadir miembro',fM(),v=>ins('miembros',{...rM(v),foto_url:v.f||null}))}
+function addC(){modal('Nueva canción',fC(),v=>ins('canciones',rC(v)))}
+function addP(){modal('Nuevo servicio',fP(),v=>ins('planificacion',{fecha:v.fecha,nombre:v.nombre,canciones:v.canciones,miembros:v.miembros}),{fecha:hoy()})}
 function addG(){modal('Subir foto',[{id:'f',l:'Imagen',t:'file',req:1}],v=>{if(!v.f)throw new Error('Selecciona una imagen');return ins('galeria',{imagen_url:v.f})})}
-function addF(){modal('Nuevo movimiento',[{id:'tipo',l:'Tipo',t:'select',o:['Ingreso','Egreso']},{id:'c',l:'Concepto',req:1},{id:'m',l:'Monto',t:'number',req:1},{id:'fecha',l:'Fecha',t:'date',req:1}],
- v=>ins('finanzas',{tipo:v.tipo,concepto:v.c,monto:Math.abs(parseFloat(v.m))||0,fecha:v.fecha}));$('#f_fecha').value=hoy();$('#f_m').step='0.01'}
+function addF(){modal('Nuevo movimiento',fF(),v=>ins('finanzas',rF(v)),{fecha:hoy()})}
+const E={
+ miembros(id){const m=find('miembros',id);modal('Editar miembro',fM(),v=>upd('miembros',id,{...rM(v),foto_url:v.f||m.foto_url||null}),{n:m.nombre,r:m.rol,d:m.dato})},
+ canciones(id){const c=find('canciones',id);modal('Editar canción',fC(),v=>upd('canciones',id,rC(v)),{t:c.titulo,k:c.tonalidad,s:c.estilo})},
+ planificacion(id){const p=find('planificacion',id);modal('Editar servicio',fP(arr(p.canciones),arr(p.miembros)),v=>upd('planificacion',id,{fecha:v.fecha,nombre:v.nombre,canciones:v.canciones,miembros:v.miembros}),{fecha:p.fecha,nombre:p.nombre,canciones:arr(p.canciones),miembros:arr(p.miembros)})},
+ finanzas(id){const x=find('finanzas',id);modal('Editar movimiento',fF(),v=>upd('finanzas',id,rF(v)),{tipo:x.tipo,c:x.concepto,m:x.monto,fecha:x.fecha})}
+};
 
 if(ses('al_ses'))start();
 </script></body></html>
